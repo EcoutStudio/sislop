@@ -75,3 +75,7 @@ Não é necessário configurar Cloudflare Access para o portal. Caso tenha criad
 D1 é o banco compartilhado. Não o recrie em atualizações. Antes de alterar esquemas, faça backup fora do Git com `wrangler d1 export` usando a configuração de produção. Exportações contêm dados privados. As migrações já aplicadas são controladas pelo Wrangler. Se Henrique esquecer a senha e não tiver nenhuma sessão válida, será necessária recuperação administrativa pelo proprietário da conta Cloudflare, fora do portal; reinstalar o site ou recolocar SETUP_TOKEN não redefine uma conta existente.
 
 A arquitetura usa recursos com plano gratuito e não exige domínio, R2 ou serviço de e-mail. Verifique as quotas e eventuais opções pagas na conta da Sislop. Nenhuma alteração na Cloudflare da Ecout é necessária.
+
+## Disparar o primeiro build após conectar o GitHub
+
+Reconectar o GitHub e salvar variáveis não publica automaticamente o código que já estava na branch. Um novo push para `codex/sislop-platform` pode disparar o primeiro build depois de habilitar os builds. Na aba Deployments, uma versão descrita como `Add secret: SETUP_TOKEN` representa apenas a atualização do segredo no Worker anterior; não confirma publicação do projeto. Confira o resultado do build do GitHub e, em caso de falha, consulte os logs antes de tentar novamente.
