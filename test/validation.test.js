@@ -21,3 +21,10 @@ test('campos desconhecidos e tipos inválidos são rejeitados',()=>{
  assert.throws(()=>validate('posts',{title:'Post',published:'true'}));
  assert.throws(()=>validate('shows',{title:'Show',date:'amanhã'}));
 });
+test('checklists, horários e prioridades válidos; sessões internas nunca viram show público',()=>{
+ assert.equal(validate('tasks',{title:'Mixagem',owner:'Henrique Melo',priority:'Alta',checklist:[{text:'Revisar',done:false}]}).checklist.length,1);
+ assert.throws(()=>validate('tasks',{title:'Mixagem',owner:'Henrique Melo',checklist:[{text:'Revisar',done:'false'}]}));
+ assert.throws(()=>validate('shows',{title:'Sessão',eventType:'Gravação',published:true}));
+ assert.throws(()=>validate('shows',{title:'Show',time:'25:30'}));
+ assert.equal(validate('shows',{title:'Curitiba',time:'20:00',duration:'60'}).duration,'60');
+});

@@ -79,3 +79,15 @@ A arquitetura usa recursos com plano gratuito e não exige domínio, R2 ou servi
 ## Disparar o primeiro build após conectar o GitHub
 
 Reconectar o GitHub e salvar variáveis não publica automaticamente o código que já estava na branch. Um novo push para `codex/sislop-platform` pode disparar o primeiro build depois de habilitar os builds. Na aba Deployments, uma versão descrita como `Add secret: SETUP_TOKEN` representa apenas a atualização do segredo no Worker anterior; não confirma publicação do projeto. Confira o resultado do build do GitHub e, em caso de falha, consulte os logs antes de tentar novamente.
+
+## Central de trabalho e planejamento inicial
+
+A migração `0004_diamantado_planning.sql` adiciona uma única vez 19 tarefas, 7 rascunhos de conteúdo, 2 sessões de gravação, 1 show e 2 blocos de mídia kit. Ela não altera contas, senhas ou registros existentes. IDs fixos e `INSERT OR IGNORE` impedem duplicações; as edições da banda não são sobrescritas por próximos deploys.
+
+Informações confirmadas pela banda: gravações em 15 e 22/11/2026; apresentação no **Puple Reis, Curitiba, 12/12/2026, 20h–21h**; repertório a receber de Henrique; lançamento de **DIAMANTADO** ainda sem data. Horários seguem Brasília. Responsáveis, prazos de tarefas e ideias editoriais são sugestões identificadas para revisão. Não foram inventados contatos, valores financeiros ou músicas. Nenhum item inicial é publicado automaticamente no site ou em redes sociais.
+
+A visão geral reúne próximas ações, compromissos e distribuição de tarefas. Tarefas possuem prioridade, projeto, frente de trabalho e checklist; podem ser vistas em lista ou quadro de etapas. Busca e filtros ajudam a localizar registros. A agenda agrupa shows, sessões, prazos de tarefas e planejamento editorial. Todos os integrantes podem criar, editar e excluir os registros; somente Henrique acessa a aba discreta **Controle de pessoas**, com permissão também verificada no servidor.
+
+A edição pela interface usa a versão do registro para detectar atualizações concorrentes. Se outra pessoa editar primeiro, o portal pede para carregar a versão atual em vez de sobrescrevê-la. Use **Atualizar** para buscar alterações da equipe.
+
+O mídia kit público está em `/midia-kit`, com seções editáveis no portal (biografia, release, integrantes, fotos, vídeos, ficha técnica, links e contato), links de arquivos e opção de impressão/PDF. Só blocos marcados como públicos aparecem nessa página. O arquivo do mídia kit original ainda precisa ser fornecido pela banda para adaptação; não há upload de arquivos ou integração direta com ABRAMUS/redes sociais.
