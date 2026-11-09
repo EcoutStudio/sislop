@@ -1,11 +1,6 @@
 import {readFileSync,writeFileSync} from 'node:fs';
-const required=['CLOUDFLARE_DATABASE_ID','ACCESS_TEAM_DOMAIN','ACCESS_AUD','TEAM_EMAILS'];
-for(const name of required)if(!process.env[name]?.trim())throw Error(`Configure ${name} antes de publicar`);
-if(!/^[0-9a-f-]{36}$/.test(process.env.CLOUDFLARE_DATABASE_ID))throw Error('ID D1 inválido');
-if(!/^[a-zA-Z0-9-]+\.cloudflareaccess\.com$/.test(process.env.ACCESS_TEAM_DOMAIN))throw Error('Domínio Access inválido');
-const emails=process.env.TEAM_EMAILS.split(',').map(x=>x.trim().toLowerCase());
-if(emails.length!==4 || new Set(emails).size!==4 || emails.some(e=>!/^\S+@\S+\.\S+$/.test(e)))throw Error('Informe os quatro e-mails individuais em TEAM_EMAILS');
+const databaseId=process.env.CLOUDFLARE_DATABASE_ID?.trim();
+if(!databaseId||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(databaseId))throw Error('Configure CLOUDFLARE_DATABASE_ID com o UUID do banco D1 da Sislop');
 const config=JSON.parse(readFileSync('wrangler.json','utf8'));
-config.d1_databases[0].database_id=process.env.CLOUDFLARE_DATABASE_ID;
-for(const key of ['ACCESS_TEAM_DOMAIN','ACCESS_AUD','TEAM_EMAILS'])config.vars[key]=process.env[key];
+config.d1_databases[0].database_id=databaseId;
 writeFileSync('wrangler.deploy.json',JSON.stringify(config,null,2));

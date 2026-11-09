@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, jwtVerify } from 'jose';
+import {identity,authRoute} from './auth.js';
 const kinds = ['shows','tasks','contacts','finance','posts','media'];
 const members = ['Henrique Melo','Antônio Anísio','Breno Phernan','Cassio Ledo'];
 const json = (data, status=200) => Response.json(data, {status, headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -20,22 +20,9 @@ export function validate(kind, data) {
  if (kind === 'tasks' && !members.includes(data.owner)) throw Error('Escolha um responsável');
  return {...data,title:data.title.trim()};
 }
-async function identity(request, env) {
- // The development override is never accepted on a deployed hostname.
- const host = new URL(request.url).hostname;
- if (env.DEV_AUTH === 'true' && ['localhost','127.0.0.1','[::1]'].includes(host)) return 'local-development';
- if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD || !env.TEAM_EMAILS) return null;
- const token = request.headers.get('Cf-Access-Jwt-Assertion');
- if (!token || !/^[a-zA-Z0-9-]+\.cloudflareaccess\.com$/.test(env.ACCESS_TEAM_DOMAIN)) return null;
- try {
-  const issuer = `https://${env.ACCESS_TEAM_DOMAIN}`;
-  const {payload} = await jwtVerify(token, createRemoteJWKSet(new URL(`${issuer}/cdn-cgi/access/certs`)), {issuer,audience:env.ACCESS_AUD,algorithms:['RS256']});
-  const email = String(payload.email || '').toLowerCase();
-  return env.TEAM_EMAILS.toLowerCase().split(',').map(x=>x.trim()).includes(email) ? email : null;
- } catch { return null; }
-}
 async function handle(request,env) {
  const url = new URL(request.url), path = url.pathname;
+ const authResponse=await authRoute(request,env);if(authResponse)return authResponse;
  if (path === '/api/public') {
   if (request.method !== 'GET') return json({error:'Método não permitido'},405);
   const {results} = await env.DB.prepare("SELECT id,kind,data FROM records WHERE kind IN ('shows','posts','media') AND json_extract(data,'$.published') = 1 ORDER BY json_extract(data,'$.date') ASC").all();
@@ -44,9 +31,11 @@ async function handle(request,env) {
  }
  if (path.startsWith('/api/internal')) {
   const actor = await identity(request,env);
-  if (!actor) return json({error:'Acesso restrito à equipe. Entre pelo Cloudflare Access.'},401);
+  if (!actor) return json({error:'Acesso restrito à equipe. Entre com seu usuário e senha.'},401);
   if (request.method !== 'GET' && request.headers.get('Origin') !== url.origin) return json({error:'Origem não permitida'},403);
-  if (path === '/api/internal/me' && request.method === 'GET') return json({email:actor,members});
+  if (path === '/api/internal/me' && request.method === 'GET') return json({...actor,members});
+  if(actor.must_change_password)return json({error:'Troque a senha temporária antes de acessar os módulos'},403);
+  const actorName=actor.username;
   const match = path.match(/^\/api\/internal\/(shows|tasks|contacts|finance|posts|media)(?:\/([a-f0-9-]{36}))?$/);
   if (!match) return json({error:'Rota inexistente'},404);
   const [,kind,id] = match;
@@ -55,7 +44,7 @@ async function handle(request,env) {
    return json(results.map(r=>({id:r.id,...JSON.parse(r.data),updated_at:r.updated_at})));
   }
   if (request.method === 'DELETE' && id) {
-   const result = await env.DB.batch([env.DB.prepare('DELETE FROM records WHERE kind=? AND id=?').bind(kind,id),env.DB.prepare('INSERT INTO audit_log(actor,action,record_id) VALUES(?,?,?)').bind(actor,'delete',id)]);
+   const result = await env.DB.batch([env.DB.prepare('DELETE FROM records WHERE kind=? AND id=?').bind(kind,id),env.DB.prepare('INSERT INTO audit_log(actor,action,record_id) VALUES(?,?,?)').bind(actorName,'delete',id)]);
    return result[0].meta.changes ? json({ok:true}) : json({error:'Registro não encontrado'},404);
   }
   if ((request.method === 'POST' && !id) || (request.method === 'PUT' && id)) {
@@ -63,8 +52,8 @@ async function handle(request,env) {
    const body = await request.text(); if (body.length > 20000) return json({error:'Registro muito grande'},413);
    let data; try { data=validate(kind,JSON.parse(body)); } catch(e) { return json({error:e.message},400); }
    const recordId=id || crypto.randomUUID();
-   const statement = id ? env.DB.prepare("UPDATE records SET data=?,updated_by=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND kind=?").bind(JSON.stringify(data),actor,id,kind) : env.DB.prepare('INSERT INTO records(id,kind,data,updated_by) VALUES(?,?,?,?)').bind(recordId,kind,JSON.stringify(data),actor);
-   const result = await env.DB.batch([statement,env.DB.prepare('INSERT INTO audit_log(actor,action,record_id) VALUES(?,?,?)').bind(actor,id?'update':'create',recordId)]);
+   const statement = id ? env.DB.prepare("UPDATE records SET data=?,updated_by=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND kind=?").bind(JSON.stringify(data),actorName,id,kind) : env.DB.prepare('INSERT INTO records(id,kind,data,updated_by) VALUES(?,?,?,?)').bind(recordId,kind,JSON.stringify(data),actorName);
+   const result = await env.DB.batch([statement,env.DB.prepare('INSERT INTO audit_log(actor,action,record_id) VALUES(?,?,?)').bind(actorName,id?'update':'create',recordId)]);
    return result[0].meta.changes ? json({id:recordId,...data},id?200:201) : json({error:'Registro não encontrado'},404);
   }
   return json({error:'Método não permitido'},405);

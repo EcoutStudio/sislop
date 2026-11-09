@@ -25,4 +25,32 @@ function open(row=null){editing=row;$('#fields').replaceChildren();$('#form-erro
  $('#editor').showModal();}
 $('#cancel').onclick=()=>$('#editor').close();$('#new').onclick=()=>open();
 $('#form').onsubmit=async event=>{event.preventDefault();const button=$('#form button[type=submit]');button.disabled=true;try{const data=Object.fromEntries(new FormData($('#form')));if('amount'in data)data.amount=Math.round(Number(data.amount)*100);if('published'in data)data.published=data.published==='true';await api(kind+(editing?'/'+editing.id:''),{method:editing?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});$('#editor').close();await load();}catch(e){$('#form-error').textContent=e.message;}finally{button.disabled=false;}};
-try{const me=await api('me');members=me.members;$('#identity').textContent=me.email==='local-development'?'Desenvolvimento local · todos os módulos disponíveis':me.email+' · acesso completo, incluindo financeiro';$('#workspace').hidden=false;for(const [key,label]of Object.entries(labels)){const button=node('button',label);button.className='secondary';button.onclick=()=>{kind=key;for(const b of $('.tabs').children)b.classList.remove('active');button.classList.add('active');load();};$('.tabs').append(button);}$('.tabs').firstChild.classList.add('active');await load();}catch(e){$('#identity').textContent=e.message;$('#login').hidden=false;}
+async function auth(path,data){const res=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const result=await res.json();if(!res.ok)throw Error(result.error);return result;}
+function bindForm(id,path,onSuccess){$(id).onsubmit=async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector('button'),error=form.querySelector('[role=alert]');error.textContent='';button.disabled=true;try{const data=Object.fromEntries(new FormData(form));if('confirmation'in data&&data.password!==data.confirmation)throw Error('As senhas não coincidem');delete data.confirmation;await auth(path,data);form.reset();await onSuccess();}catch(e){error.textContent=e.message;}finally{button.disabled=false;}};}
+bindForm('#login-form','auth/login',()=>location.reload());
+bindForm('#setup-form','auth/setup',()=>location.reload());
+bindForm('#password-form','auth/password',()=>location.reload());
+$('#logout').onclick=async()=>{try{await auth('auth/logout',{});location.reload();}catch(e){$('#identity').textContent=e.message;}};
+$('#change-password').onclick=()=>{$('#password-panel').hidden=!$('#password-panel').hidden;};
+async function adminUsers(){
+ const response=await fetch('/api/admin/users');if(!response.ok)throw Error('Não foi possível carregar os usuários');const users=await response.json();$('#users').replaceChildren();
+ for(const user of users){const card=node('article','');card.append(node('h3',user.name),node('p',`${user.username} · ${user.role==='admin'?'Administrador':user.enabled?(user.configured?'Ativo':'Aguardando primeiro acesso'):'Desativado'}`));
+ if(user.role!=='admin'){
+ const reset=node('button',user.configured?'Redefinir senha':'Gerar primeiro acesso');reset.onclick=async()=>{if(user.configured&&!confirm('Redefinir a senha e encerrar todas as sessões deste usuário?'))return;reset.disabled=true;try{const result=await auth(`admin/users/${user.username}/reset`,{});await adminUsers();$('#admin-message').textContent=`Usuário: ${result.username} · Senha temporária: ${result.temporaryPassword}. Copie e compartilhe diretamente com o integrante. Ela não será mostrada novamente após sair desta tela.`;}catch(e){$('#admin-message').textContent=e.message;}finally{reset.disabled=false;}};
+ const toggle=node('button',user.enabled?'Desativar acesso':'Reativar acesso');toggle.className='secondary';toggle.onclick=async()=>{try{await auth(`admin/users/${user.username}/toggle`,{enabled:!user.enabled});$('#admin-message').textContent='Acesso atualizado. Sessões anteriores encerradas.';await adminUsers();}catch(e){$('#admin-message').textContent=e.message;}};const actions=node('div','');actions.className='actions';actions.append(reset,toggle);card.append(actions);
+ }$('#users').append(card);}
+}
+try{
+ const me=await api('me');members=me.members;
+ $('#identity').textContent=`${me.name} · ${me.role==='admin'?'Administrador':'Integrante'} · acesso financeiro`;
+ $('#logout').hidden=false;
+ if(me.must_change_password){$('#password-panel').hidden=false;$('#password-help').textContent='Troque sua senha temporária para liberar os módulos. Depois entre novamente com a nova senha.';}
+ else{
+ $('#workspace').hidden=false;
+ if(me.role==='admin'&&me.username!=='local-development'){$('#admin-panel').hidden=false;await adminUsers();}
+ for(const [key,label]of Object.entries(labels)){const button=node('button',label);button.className='secondary';button.onclick=()=>{kind=key;for(const b of $('.tabs').children)b.classList.remove('active');button.classList.add('active');load();};$('.tabs').append(button);}$('.tabs').firstChild.classList.add('active');await load();
+ }
+}catch(e){
+ $('#identity').textContent='Acesso exclusivo da equipe Sislop.';
+ try{const response=await fetch('/api/auth/status');if(!response.ok)throw Error();const status=await response.json();$(status.initialized?'#login':'#setup').hidden=false;}catch{$('#identity').textContent='Não foi possível conectar ao portal. Tente novamente.';}
+}
