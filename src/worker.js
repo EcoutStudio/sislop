@@ -1,10 +1,11 @@
+import {mediaAssetRoute} from './media-assets.js';
 import {identity,authRoute} from './auth.js';
 const kinds = ['shows','tasks','contacts','finance','posts','media'];
 const members = ['Henrique Melo','Antônio Anísio','Breno Phernan','Cassio Ledo'];
 const json = (data, status=200) => Response.json(data, {status, headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validate(kind, data) {
  if (!kinds.includes(kind) || !data || typeof data !== 'object' || Array.isArray(data)) throw Error('Registro inválido');
- const allowed = ['title','body','date','location','owner','status','email','phone','notes','amount','direction','published','url','project','priority','category','channel','time','duration','eventType','origin','checklist'];
+ const allowed = ['title','body','date','location','owner','status','email','phone','notes','amount','direction','published','url','project','priority','category','channel','time','duration','eventType','origin','checklist','stageLeft','stageCenter','stageRight','stageBack','stageAmpLeft','stageAmpRight'];
  for (const key of Object.keys(data)) if (!allowed.includes(key)) throw Error('Campo desconhecido');
  if (typeof data.title !== 'string' || !data.title.trim() || data.title.length > 180) throw Error('Informe um título de até 180 caracteres');
  for (const [key,value] of Object.entries(data)) {
@@ -28,12 +29,13 @@ export function validate(kind, data) {
 }
 async function handle(request,env) {
  const url = new URL(request.url), path = url.pathname;
+ const mediaResponse=await mediaAssetRoute(request,env);if(mediaResponse)return mediaResponse;
  const authResponse=await authRoute(request,env);if(authResponse)return authResponse;
  if (path === '/api/public') {
   if (request.method !== 'GET') return json({error:'Método não permitido'},405);
-  const {results} = await env.DB.prepare("SELECT id,kind,data FROM records WHERE kind IN ('shows','posts','media') AND json_extract(data,'$.published') = 1 ORDER BY json_extract(data,'$.date') ASC").all();
+  const {results} = await env.DB.prepare("SELECT id,kind,data,(SELECT id FROM media_assets a WHERE a.record_id=records.id) AS asset_id FROM records WHERE kind IN ('shows','posts','media') AND json_extract(data,'$.published') = 1 ORDER BY json_extract(data,'$.date') ASC").all();
   // Explicit projection: internal notes, owners and finance never leave the portal.
-  return json(results.map(row=>{const d=JSON.parse(row.data); return {id:row.id,kind:row.kind,title:d.title,date:d.date,location:d.location,url:d.url,body:d.body,category:d.category,time:d.time,duration:d.duration};}));
+  return json(results.map(row=>{const d=JSON.parse(row.data); return {id:row.id,kind:row.kind,title:d.title,date:d.date,location:d.location,url:d.url,body:d.body,category:d.category,time:d.time,duration:d.duration,stageLeft:d.stageLeft,stageCenter:d.stageCenter,stageRight:d.stageRight,stageBack:d.stageBack,stageAmpLeft:d.stageAmpLeft,stageAmpRight:d.stageAmpRight,imagePath:row.asset_id?'/media-assets/'+row.asset_id:''};}));
  }
  if (path.startsWith('/api/internal')) {
   const actor = await identity(request,env);
@@ -46,8 +48,8 @@ async function handle(request,env) {
   if (!match) return json({error:'Rota inexistente'},404);
   const [,kind,id] = match;
   if (request.method === 'GET' && !id) {
-   const {results} = await env.DB.prepare('SELECT id,data,updated_at FROM records WHERE kind=? ORDER BY updated_at DESC').bind(kind).all();
-   return json(results.map(r=>({id:r.id,...JSON.parse(r.data),updated_at:r.updated_at})));
+   const {results} = await env.DB.prepare('SELECT id,data,updated_at,(SELECT id FROM media_assets a WHERE a.record_id=records.id) AS asset_id FROM records WHERE kind=? ORDER BY updated_at DESC').bind(kind).all();
+   return json(results.map(r=>({id:r.id,...JSON.parse(r.data),updated_at:r.updated_at,...(r.asset_id?{imagePath:'/media-assets/'+r.asset_id}:{})})));
   }
   if (request.method === 'DELETE' && id) {
    const result = await env.DB.batch([env.DB.prepare('DELETE FROM records WHERE kind=? AND id=?').bind(kind,id),env.DB.prepare('INSERT INTO audit_log(actor,action,record_id) VALUES(?,?,?)').bind(actorName,'delete',id)]);

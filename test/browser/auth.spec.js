@@ -34,6 +34,19 @@ test('Henrique administra acessos; integrantes trocam senha e têm financeiro se
  const reset=await post(page.request,'/api/admin/users/breno/reset',{});expect(reset.status()).toBe(200);
  expect((await post(member.request,'/api/auth/login',{username:'breno',password:'Breno-new-password-2026'})).status()).toBe(401);
  for(let i=0;i<11;i++){const response=await post(member.request,'/api/auth/login',{username:'nonexistent-rate-test',password:'wrong-password'});expect(response.status()).toBe(i<10?401:429);}
+ const draftResponse=await post(page.request,'/api/internal/media',{title:'Foto de teste de privacidade',category:'Fotos',published:false});expect(draftResponse.status()).toBe(201);const draft=await draftResponse.json();
+ let imagePath;
+ try{
+ const denied=await member.request.post(base+`/api/internal/media/${draft.id}/image`,{headers:{...headers,'Content-Type':'image/png'},data:Buffer.from('not-an-image')});expect(denied.status()).toBe(401);
+ const svg=await page.request.post(base+`/api/internal/media/${draft.id}/image`,{headers:{...headers,'Content-Type':'image/svg+xml'},data:'<svg></svg>'});expect(svg.status()).toBe(415);
+ const oversized=await page.request.post(base+`/api/internal/media/${draft.id}/image`,{headers:{...headers,'Content-Type':'image/png'},data:Buffer.alloc(1048577)});expect(oversized.status()).toBe(413);
+ const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==','base64');
+ const uploaded=await page.request.post(base+`/api/internal/media/${draft.id}/image`,{headers:{...headers,'Content-Type':'image/png'},data:image});expect(uploaded.status()).toBe(201);imagePath=(await uploaded.json()).imagePath;
+ expect((await page.request.get(base+imagePath)).status()).toBe(200);expect((await member.request.get(base+imagePath)).status()).toBe(404);
+ const publish=await page.request.put(base+'/api/internal/media/'+draft.id,{headers,data:{title:draft.title,category:'Fotos',published:true}});expect(publish.status()).toBe(200);const visible=await member.request.get(base+imagePath);expect(visible.status()).toBe(200);expect(visible.headers()['content-type']).toBe('image/png');
+ const unpublish=await page.request.put(base+'/api/internal/media/'+draft.id,{headers,data:{title:draft.title,category:'Fotos',published:false}});expect(unpublish.status()).toBe(200);expect((await member.request.get(base+imagePath)).status()).toBe(404);
+ }finally{expect((await page.request.delete(base+'/api/internal/media/'+draft.id,{headers})).status()).toBe(200);}
+ if(imagePath)expect((await page.request.get(base+imagePath)).status()).toBe(404);
  const cookies=await page.context().cookies(base);const session=cookies.find(c=>c.name==='sislop_local');expect(session.httpOnly).toBe(true);expect(session.secure).toBe(true);expect(session.sameSite).toBe('Strict');
  await page.getByRole('button',{name:'Sair',exact:true}).click();await expect(page.getByRole('heading',{name:'Entre nos bastidores'})).toBeVisible();expect((await page.request.get(base+'/api/internal/finance')).status()).toBe(401);
  }finally{await memberContext.close();}
