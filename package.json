@@ -1,0 +1,36 @@
+{
+  "name": "sislop",
+  "version": "1.0.0",
+  "description": "Site p\u00fablico e portal de gest\u00e3o da banda Sislop",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "dev": "wrangler dev --ip 127.0.0.1",
+    "db:local": "wrangler d1 migrations apply sislop --local",
+    "build": "wrangler deploy --dry-run --outdir .wrangler/build",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "playwright test",
+    "deploy:config": "node scripts/deploy-config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EcoutStudio/sislop.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/EcoutStudio/sislop/issues"
+  },
+  "homepage": "https://github.com/EcoutStudio/sislop#readme",
+  "dependencies": {
+    "jose": "^6.2.17"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "wrangler": "^4.159.0"
+  },
+  "private": true
+}
