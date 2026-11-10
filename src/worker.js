@@ -95,6 +95,11 @@ async function handle(request,env) {
 }
 export default {async fetch(request,env) {
  try {
+  const url=new URL(request.url);
+  if(url.hostname==='www.sislop.com.br'||(url.hostname==='sislop.com.br'&&url.protocol==='http:')){
+   url.hostname='sislop.com.br';url.protocol='https:';url.port='';
+   return Response.redirect(url.toString(),['GET','HEAD'].includes(request.method)?301:308);
+  }
   const response=await handle(request,env); const headers=new Headers(response.headers);
   headers.set('X-Content-Type-Options','nosniff'); headers.set('Referrer-Policy','strict-origin-when-cross-origin');
   headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
