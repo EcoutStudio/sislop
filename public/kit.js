@@ -11,10 +11,10 @@ function stagePlot(row){
 try{
  const response=await fetch(preview?'/api/internal/media':'/api/public');
  if(!response.ok)throw Error(preview?'Entre no portal para visualizar os rascunhos do mídia kit.':'Não foi possível carregar o mídia kit agora.');
- const data=await response.json(),items=preview?data:data.filter(r=>r.kind==='media');root.replaceChildren();
+ const data=await response.json(),items=preview?data:data.filter(r=>r.kind==='media'&&(r.category!=='Capa do álbum'||r.imagePath));root.replaceChildren();
  if(preview){document.querySelector('.hero-bottom p').textContent='Prévia interna · Sislop. Textos e materiais em revisão.';document.querySelector('.kit-hero .eyebrow').textContent='PRÉVIA INTERNA / REVISÃO DA BANDA';const note=node('aside','Esta prévia inclui rascunhos. Somente blocos marcados como públicos no portal aparecem no mídia kit externo.','preview-notice');root.append(note);}
  if(!items.length)root.append(node('p','Os materiais estão sendo atualizados. Solicite o mídia kit pelo e-mail da banda.'));
- const order=['Biografia','História','Sonoridade','Release','Integrantes','Discografia','Fotos','Vídeos','Mapa de palco','Ficha técnica','Links','Contato','Outros'];
+ const order=['Biografia','História','Sonoridade','Release','Capa do álbum','Integrantes','Discografia','Fotos','Vídeos','Mapa de palco','Ficha técnica','Links','Contato','Outros'];
  const groups=new Map();for(const item of items){const category=item.category||'Materiais oficiais';if(!groups.has(category))groups.set(category,[]);groups.get(category).push(item);}
  for(const [category,rows]of [...groups].sort((a,b)=>(order.indexOf(a[0])<0?99:order.indexOf(a[0]))-(order.indexOf(b[0])<0?99:order.indexOf(b[0])))){
   const section=node('div',null,'kit-group');section.append(node('h2',category));

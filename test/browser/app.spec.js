@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 test('site público responsivo e portal protegido sem Access',async({page,request})=>{
- await page.goto('/');await expect(page.getByRole('heading',{level:1})).toContainText('O volume sobe.');
+ await page.goto('/');await expect(page.getByRole('heading',{level:1})).toContainText('DIAMANTADO');
  await page.screenshot({path:'.wrangler/site-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

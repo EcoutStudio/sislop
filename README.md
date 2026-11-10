@@ -122,3 +122,9 @@ Henrique pode criar colaboradores em **Controle de pessoas**, gerando usuário e
 | Somente leitura | Nenhum módulo | Tarefas, shows, conteúdo e mídia kit | Sem acesso |
 
 A permissão **Pode publicar no site** é separada e começa desmarcada para colaboradores. Sem ela, não se pode publicar, alterar ou excluir materiais já públicos, inclusive suas imagens. Comentários internos continuam disponíveis nos módulos em que a pessoa pode editar. Alterar perfil ou desativar uma conta encerra suas sessões. Essas restrições são verificadas pelo servidor, inclusive no histórico, na API e nos uploads, além da interface. Os perfis são por módulo; ainda não há restrição por projeto ou tarefa específica.
+
+## Identidade de DIAMANTADO e página pública
+
+O site e o portal usam a paleta azul profundo/ciano/preto indicada pela banda. A página pública foi simplificada: DIAMANTADO primeiro, agenda pública em seguida e contato/mídia kit no encerramento. Novidades aparecem somente quando há publicações aprovadas. O selo **EM BREVE** usa brilho e pulso lentos, desativados com a preferência de movimento reduzido; não há data ou contagem regressiva inventada.
+
+A arte original será apresentada integralmente, com `object-fit: contain`, iluminação de fundo e transição suave nas bordas. O nome e a assinatura não são substituídos ou recriados. O destaque usa a imagem pública do bloco **Capa de DIAMANTADO**, categoria **Capa do álbum**, e também a apresenta no resumo do portal. Uma imagem privada nunca é usada como capa pública. Sem imagem publicada há uma composição tipográfica provisória, que não reproduz a ilustração da artista. A imagem enviada na conversa ainda precisa chegar como arquivo JPG/PNG para incorporar a original; o arquivo não estava disponível no executor nesta etapa.
