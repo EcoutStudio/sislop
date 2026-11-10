@@ -101,3 +101,24 @@ No portal, use **Prévia do mídia kit** para ver `/midia-kit?preview=1` com os 
 O mapa de palco foi redesenhado como esquema sem escala baseado na referência: guitarra/voz ao centro, baixo/voz à direita, teclado/voz à esquerda e bateria ao fundo. A numeração de retornos foi organizada em 1/2/3/4 porque a imagem repete o número 4. Três microfones referem-se às vozes; microfonação da bateria, saídas/DIs do teclado, input list e backline seguem para alinhamento. A sugestão de 8 × 6 m não é tratada como exigência contratual.
 
 Cada bloco de mídia kit pode receber uma imagem complementar JPG, PNG ou WebP de até 1 MiB pelo portal. As imagens são armazenadas no D1 com verificação de formato e tamanho, sem serviço ou conta adicional. Uma imagem privada exige sessão válida; ao retirar a publicação do bloco, seu endereço também deixa de ser público. As imagens não viram capa automaticamente. Essa opção permite enviar a foto secundária compartilhada na conversa sem alterar código. Fotos da conversa inseridas como imagens não ficaram disponíveis como arquivos no executor; a foto exata ainda precisa ser adicionada por esse campo. Não foram copiadas fotos de terceiros ou escolhida uma foto principal.
+
+## Presença, autoria e colaboradores
+
+A migração `0006_collaboration.sql` adiciona presença e histórico detalhado, preserva as quatro contas da banda com acesso completo e publica o show confirmado no Puple Reis na agenda pública. A publicação muda somente a visibilidade desse show; gravações e rascunhos continuam privados.
+
+- **Equipe online:** atualiza a cada 30 segundos enquanto a aba está visível. Considera atividade nos últimos 90 segundos e sessões ainda válidas; não representa uma conexão contínua nem monitoramento de teclado. Várias sessões da mesma pessoa contam uma vez.
+- **Autoria:** novos registros exibem quem criou e atualizou; tarefas mostram quem concluiu. Etapas do checklist recebem autor e horário no servidor. O cliente não pode escolher esses autores. Histórico detalhado e comentários ficam em **Atividade**; na visão geral há um resumo da equipe.
+- **Registros anteriores:** nomes só são recuperados quando havia registro de auditoria; os demais aparecem como planejamento inicial. O histórico não inventa quem marcou etapas antigas.
+- **Concorrência:** alterações com versão antiga são recusadas e não geram eventos falsos no histórico.
+
+Henrique pode criar colaboradores em **Controle de pessoas**, gerando usuário e senha temporária de uso inicial. Não há envio automático por e-mail: compartilhe o acesso diretamente. Os quatro integrantes mantêm todos os módulos, e somente Henrique administra contas.
+
+| Perfil de colaborador | Pode editar | Pode consultar adicionalmente | Financeiro |
+|---|---|---|---|
+| Equipe completa | Todos os módulos | — | Completo |
+| Conteúdo e edição | Tarefas, conteúdo, mídia kit | Shows | Sem acesso |
+| Produção | Tarefas, shows, contatos | Conteúdo e mídia kit | Sem acesso |
+| Financeiro | Tarefas e financeiro | Shows, contatos, conteúdo e mídia kit | Completo |
+| Somente leitura | Nenhum módulo | Tarefas, shows, conteúdo e mídia kit | Sem acesso |
+
+A permissão **Pode publicar no site** é separada e começa desmarcada para colaboradores. Sem ela, não se pode publicar, alterar ou excluir materiais já públicos, inclusive suas imagens. Comentários internos continuam disponíveis nos módulos em que a pessoa pode editar. Alterar perfil ou desativar uma conta encerra suas sessões. Essas restrições são verificadas pelo servidor, inclusive no histórico, na API e nos uploads, além da interface. Os perfis são por módulo; ainda não há restrição por projeto ou tarefa específica.

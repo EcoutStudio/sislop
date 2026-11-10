@@ -1,3 +1,4 @@
+import {allowed} from './permissions.js';
 import {identity} from './auth.js';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const maxBytes=1024*1024;
@@ -14,16 +15,17 @@ export async function mediaAssetRoute(request,env){
   if(request.method!=='GET')return json({error:'Método não permitido'},405);
   const row=await env.DB.prepare("SELECT a.content,a.mime,json_extract(r.data,'$.published') AS published FROM media_assets a JOIN records r ON r.id=a.record_id WHERE a.id=? AND r.kind='media'").bind(read[1]).first();
   if(!row)return json({error:'Imagem não encontrada'},404);
-  if(!row.published){const actor=await identity(request,env);if(!actor||actor.must_change_password)return json({error:'Imagem privada'},404);}
+  if(!row.published){const actor=await identity(request,env);if(!allowed(actor,'media'))return json({error:'Imagem privada'},404);}
   const bytes=Uint8Array.from(atob(row.content),c=>c.charCodeAt(0));
   return new Response(bytes,{headers:{'Content-Type':row.mime,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Disposition':'inline'}});
  }
  const write=url.pathname.match(/^\/api\/internal\/media\/([a-f0-9-]{36})\/image$/);
  if(!write)return null;
- const actor=await identity(request,env);if(!actor)return json({error:'Entre no portal'},401);if(actor.must_change_password)return json({error:'Troque a senha temporária'},403);
+ const actor=await identity(request,env);if(!actor)return json({error:'Entre no portal'},401);if(!allowed(actor,'media','write'))return json({error:'Seu perfil não pode alterar imagens'},403);
  if(request.headers.get('Origin')!==url.origin)return json({error:'Origem não permitida'},403);
  if(!['POST','DELETE'].includes(request.method))return json({error:'Método não permitido'},405);
- const record=await env.DB.prepare("SELECT id FROM records WHERE id=? AND kind='media'").bind(write[1]).first();if(!record)return json({error:'Material não encontrado'},404);
+ const record=await env.DB.prepare("SELECT id,data FROM records WHERE id=? AND kind='media'").bind(write[1]).first();if(!record)return json({error:'Material não encontrado'},404);
+ if(JSON.parse(record.data).published&&!allowed(actor,'media','publish'))return json({error:'Alterar a imagem pública exige permissão de publicação'},403);
  if(request.method==='DELETE'){
   await env.DB.batch([env.DB.prepare('DELETE FROM media_assets WHERE record_id=?').bind(record.id),env.DB.prepare('INSERT INTO audit_log(actor,action,record_id) VALUES(?,?,?)').bind(actor.username,'remove-image',record.id)]);return json({ok:true});
  }

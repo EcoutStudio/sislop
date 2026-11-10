@@ -1,3 +1,4 @@
+import {profiles,managesPeople} from './permissions.js';
 const encoder = new TextEncoder();
 const ITERATIONS = 100000;
 const json = (data,status=200,headers={}) => Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
@@ -22,9 +23,9 @@ function token(request) {
  return (request.headers.get('Cookie')||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(cookieName(request)+'='))?.split('=')[1];
 }
 export async function identity(request,env) {
- if(env.DEV_AUTH==='true'&&local(request))return {username:'local-development',name:'Desenvolvimento local',role:'admin',must_change_password:0};
+ if(env.DEV_AUTH==='true'&&local(request))return {username:'local-development',name:'Desenvolvimento local',role:'admin',access_profile:'full',can_publish:1,must_change_password:0};
  const raw=token(request);if(!raw||!/^[a-f0-9]{64}$/.test(raw))return null;
- return env.DB.prepare('SELECT u.username,u.name,u.role,u.must_change_password FROM sessions s JOIN users u ON u.username=s.username WHERE s.token_hash=? AND s.expires_at>? AND u.enabled=1 AND s.auth_version=u.auth_version').bind(await digest(raw),Date.now()).first();
+ return env.DB.prepare('SELECT u.username,u.name,u.role,u.access_profile,u.can_publish,u.must_change_password FROM sessions s JOIN users u ON u.username=s.username WHERE s.token_hash=? AND s.expires_at>? AND u.enabled=1 AND s.auth_version=u.auth_version').bind(await digest(raw),Date.now()).first();
 }
 async function limited(request,env,username) {
  const now=Date.now();
@@ -45,8 +46,8 @@ export async function authRoute(request,env) {
  const actor=await identity(request,env);
  if(path==='/api/admin/users'&&request.method==='GET'){
   if(!actor)return json({error:'Entre no portal'},401);
-  if(actor.role!=='admin'||actor.must_change_password)return json({error:'Acesso exclusivo do administrador'},403);
-  const {results}=await env.DB.prepare('SELECT username,name,role,enabled,password_hash IS NOT NULL AS configured FROM users ORDER BY username').all();return json(results);
+  if(!managesPeople(actor))return json({error:'Acesso exclusivo do administrador'},403);
+  const {results}=await env.DB.prepare('SELECT username,name,role,access_profile,can_publish,enabled,password_hash IS NOT NULL AS configured FROM users ORDER BY username').all();return json(results);
  }
  if(request.method!=='POST')return json({error:'Método não permitido'},405);
  if(!(request.headers.get('Content-Type')||'').startsWith('application/json'))return json({error:'Envie JSON'},415);
@@ -85,10 +86,28 @@ export async function authRoute(request,env) {
   await env.DB.batch([env.DB.prepare('UPDATE users SET password_hash=?,salt=?,must_change_password=0,auth_version=auth_version+1 WHERE username=?').bind(hash,salt,actor.username),env.DB.prepare('DELETE FROM sessions WHERE username=?').bind(actor.username),env.DB.prepare('INSERT INTO audit_log(actor,action,record_id) VALUES(?,?,?)').bind(actor.username,'password-change',actor.username)]);
   return json({ok:true},200,{'Set-Cookie':cookie(request,'',0)});
  }
- const match=path.match(/^\/api\/admin\/users\/(antonio|breno|cassio)\/(reset|toggle)$/);
+ if(path==='/api/admin/users'){
+  if(!managesPeople(actor))return json({error:'Acesso exclusivo de Henrique'},403);
+  const username=typeof body.username==='string'?body.username.trim().toLowerCase():'';
+  const name=typeof body.name==='string'?body.name.trim():'';
+  if(!/^[a-z][a-z0-9_-]{2,31}$/.test(username)||['henrique','antonio','breno','cassio','local-development','admin','sistema'].includes(username)||name.length<2||name.length>80)return json({error:'Informe um nome e usuário válido (3 a 32 letras, números, _ ou -)'},400);
+  if(!Object.hasOwn(profiles,body.profile)||typeof body.canPublish!=='boolean')return json({error:'Escolha um perfil e a permissão de publicação'},400);
+  const exists=await env.DB.prepare('SELECT username FROM users WHERE username=? OR name=? COLLATE NOCASE').bind(username,name).first();if(exists)return json({error:'Esse usuário ou nome já está cadastrado'},409);
+  const password=random().slice(0,24),salt=random(),hash=await passwordHash(password,salt);
+  try{await env.DB.batch([env.DB.prepare("INSERT INTO users(username,name,role,password_hash,salt,must_change_password,access_profile,can_publish) VALUES(?,?,'member',?,?,1,?,?)").bind(username,name,hash,salt,body.profile,body.canPublish?1:0),env.DB.prepare('INSERT INTO audit_log(actor,action,record_id) VALUES(?,?,?)').bind(actor.username,'create-user',username)]);}catch{return json({error:'Não foi possível criar o usuário. Confira se ele já existe.'},409);}
+  return json({username,temporaryPassword:password},201);
+ }
+ const match=path.match(/^\/api\/admin\/users\/([a-z][a-z0-9_-]{2,31})\/(reset|toggle|access)$/);
  if(match){
-  if(actor.role!=='admin'||actor.must_change_password)return json({error:'Acesso exclusivo do administrador'},403);
+  if(!managesPeople(actor))return json({error:'Acesso exclusivo do administrador'},403);
   const [,username,action]=match;
+  if(username==='henrique')return json({error:'A conta do administrador não pode ser alterada por esta operação'},403);
+  const target=await env.DB.prepare('SELECT username FROM users WHERE username=?').bind(username).first();if(!target)return json({error:'Usuário não encontrado'},404);
+  if(action==='access'){
+   if(!Object.hasOwn(profiles,body.profile)||typeof body.canPublish!=='boolean')return json({error:'Perfil inválido'},400);
+   if(['antonio','breno','cassio'].includes(username)&&(body.profile!=='full'||!body.canPublish))return json({error:'Os integrantes da banda mantêm acesso completo'},400);
+   await env.DB.batch([env.DB.prepare('UPDATE users SET access_profile=?,can_publish=?,auth_version=auth_version+1 WHERE username=?').bind(body.profile,body.canPublish?1:0,username),env.DB.prepare('DELETE FROM sessions WHERE username=?').bind(username),env.DB.prepare('INSERT INTO audit_log(actor,action,record_id) VALUES(?,?,?)').bind(actor.username,'change-access',username)]);return json({ok:true});
+  }
   if(action==='reset'){
    const password=random().slice(0,24),salt=random(),hash=await passwordHash(password,salt);
    await env.DB.batch([env.DB.prepare('UPDATE users SET password_hash=?,salt=?,enabled=1,must_change_password=1,auth_version=auth_version+1 WHERE username=?').bind(hash,salt,username),env.DB.prepare('DELETE FROM sessions WHERE username=?').bind(username),env.DB.prepare('INSERT INTO audit_log(actor,action,record_id) VALUES(?,?,?)').bind(actor.username,'password-reset',username)]);
