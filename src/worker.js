@@ -1,3 +1,4 @@
+import {artworkFor} from './artwork.js';
 import {allowed,capabilities,profiles,managesPeople} from './permissions.js';
 import {collaborationRoute,prepareChanges} from './collaboration.js';
 import {mediaAssetRoute} from './media-assets.js';
@@ -37,7 +38,7 @@ async function handle(request,env) {
   if (request.method !== 'GET') return json({error:'Método não permitido'},405);
   const {results} = await env.DB.prepare("SELECT id,kind,data,(SELECT id FROM media_assets a WHERE a.record_id=records.id) AS asset_id FROM records WHERE kind IN ('shows','posts','media') AND json_extract(data,'$.published') = 1 ORDER BY json_extract(data,'$.date') ASC").all();
   // Explicit projection: internal notes, owners and finance never leave the portal.
-  return json(results.map(row=>{const d=JSON.parse(row.data); return {id:row.id,kind:row.kind,title:d.title,date:d.date,location:d.location,url:d.url,body:d.body,category:d.category,time:d.time,duration:d.duration,stageLeft:d.stageLeft,stageCenter:d.stageCenter,stageRight:d.stageRight,stageBack:d.stageBack,stageAmpLeft:d.stageAmpLeft,stageAmpRight:d.stageAmpRight,imagePath:row.asset_id?'/media-assets/'+row.asset_id:''};}));
+  return json(results.map(row=>{const d=JSON.parse(row.data); return {id:row.id,kind:row.kind,title:d.title,date:d.date,location:d.location,url:d.url,body:d.body,category:d.category,time:d.time,duration:d.duration,stageLeft:d.stageLeft,stageCenter:d.stageCenter,stageRight:d.stageRight,stageBack:d.stageBack,stageAmpLeft:d.stageAmpLeft,stageAmpRight:d.stageAmpRight,...artworkFor(row)};}));
  }
  if (path.startsWith('/api/internal')) {
   const actor=await identity(request,env);
@@ -55,7 +56,7 @@ async function handle(request,env) {
   if(!allowed(actor,kind,request.method==='GET'?'read':'write'))return json({error:'Seu perfil não tem permissão para esta operação'},403);
   if(request.method==='GET'&&!id){
    const {results}=await env.DB.prepare(`SELECT r.*,(SELECT id FROM media_assets a WHERE a.record_id=r.id) AS asset_id,(SELECT name FROM users WHERE username=r.created_by) AS creator_name,(SELECT name FROM users WHERE username=r.updated_by) AS updater_name,(SELECT name FROM users WHERE username=r.completed_by) AS completer_name,(SELECT COUNT(*) FROM record_activity a WHERE a.record_id=r.id) AS activity_count FROM records r WHERE kind=? ORDER BY updated_at DESC`).bind(kind).all();
-   return json(results.map(r=>({id:r.id,...JSON.parse(r.data),updated_at:r.updated_at,updated_by:r.updated_by,updater_name:r.updater_name,created_at:r.created_at,created_by:r.created_by,creator_name:r.creator_name,completed_by:r.completed_by,completed_at:r.completed_at,completer_name:r.completer_name,activity_count:r.activity_count,...(r.asset_id?{imagePath:'/media-assets/'+r.asset_id}:{})})));
+   return json(results.map(r=>({id:r.id,...JSON.parse(r.data),updated_at:r.updated_at,updated_by:r.updated_by,updater_name:r.updater_name,created_at:r.created_at,created_by:r.created_by,creator_name:r.creator_name,completed_by:r.completed_by,completed_at:r.completed_at,completer_name:r.completer_name,activity_count:r.activity_count,...artworkFor(r)})));
   }
   const existing=id?await env.DB.prepare('SELECT * FROM records WHERE id=? AND kind=?').bind(id,kind).first():null;
   if(id&&!existing)return json({error:'Registro não encontrado'},404);

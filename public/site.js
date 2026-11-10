@@ -1,9 +1,10 @@
+import {selectAlbumArt,originalAlbumArt} from './album-art.js';
 const node=(tag,text,className)=>{const element=document.createElement(tag);if(text!==undefined)element.textContent=text;if(className)element.className=className;return element;};
 const shows=document.querySelector('#shows-list'),posts=document.querySelector('#posts-list');
 try{
  const response=await fetch('/api/public');if(!response.ok)throw Error();const records=await response.json();
- const cover=records.find(r=>r.kind==='media'&&r.category==='Capa do álbum'&&r.title.toUpperCase().includes('DIAMANTADO')&&r.imagePath);
- if(cover){const image=document.querySelector('#album-art');image.onload=()=>{image.hidden=false;document.querySelector('#album-art-placeholder').hidden=true;};image.onerror=()=>{image.hidden=true;document.querySelector('#album-art-placeholder').hidden=false;};image.src=cover.imagePath;}
+ const cover=selectAlbumArt(records);
+ if(cover){const image=document.querySelector('#album-art');image.onload=()=>{image.hidden=false;document.querySelector('#album-art-placeholder').hidden=true;};image.onerror=()=>{image.hidden=true;document.querySelector('#album-art-placeholder').hidden=false;};if(cover.imagePath!==originalAlbumArt){image.removeAttribute('srcset');image.src=cover.imagePath;}}
  shows.replaceChildren();const today=new Date().toLocaleDateString('sv-SE',{timeZone:'America/Sao_Paulo'});
  const dates=records.filter(r=>r.kind==='shows'&&r.date&&r.date>=today).sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||''));
  if(!dates.length)shows.append(node('p','Novas datas em breve. Fale com a gente para levar a Sislop à sua cidade.','empty-shows'));
